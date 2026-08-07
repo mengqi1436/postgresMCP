@@ -1,5 +1,6 @@
-# 构建产物
+# 构建产物（由 CI 构建，不入库）
 pg-mcp.exe
+pg-mcp-linux
 
 # 本地工具元数据 / 测试残留
 .playwright-cli/
