@@ -3,25 +3,41 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"pg-mcp/tools"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func handleListTools(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	category := ""
+// textResult 返回文本内容成功结果（等价旧 SDK 的 NewToolResultText）。
+func textResult(s string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: s}}}
+}
 
-	if args, ok := req.Params.Arguments.(map[string]interface{}); ok {
-		if c, ok := args["category"].(string); ok {
-			category = c
+// errorResult 返回业务错误结果（等价旧 SDK 的 NewToolResultError）：
+// IsError=true 且 Content 为错误文本，会话继续。
+func errorResult(err error) *mcp.CallToolResult {
+	r := &mcp.CallToolResult{}
+	r.SetError(err)
+	return r
+}
+
+func handleListTools(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	category := ""
+	if len(req.Params.Arguments) > 0 {
+		var args map[string]any
+		if err := json.Unmarshal(req.Params.Arguments, &args); err == nil {
+			if c, ok := args["category"].(string); ok {
+				category = c
+			}
 		}
 	}
 
 	toolList := tools.GetAllTools(category)
 	categories := tools.GetCategories()
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"total":      len(toolList),
 		"categories": categories,
 		"tools":      toolList,
@@ -29,39 +45,35 @@ func handleListTools(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToo
 
 	data, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
-		return mcp.NewToolResultError("序列化失败: " + err.Error()), nil
+		return errorResult(fmt.Errorf("序列化失败: %v", err)), nil
 	}
-
-	return mcp.NewToolResultText(string(data)), nil
+	return textResult(string(data)), nil
 }
 
-func handleExecute(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := req.Params.Arguments.(map[string]interface{})
-	if !ok {
-		args = make(map[string]interface{})
+func handleExecute(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := make(map[string]any)
+	if len(req.Params.Arguments) > 0 {
+		_ = json.Unmarshal(req.Params.Arguments, &args)
 	}
 
-	toolName, ok := args["tool_name"].(string)
-	if !ok || toolName == "" {
-		return mcp.NewToolResultError("参数 tool_name 是必需的"), nil
+	toolName, _ := args["tool_name"].(string)
+	if toolName == "" {
+		return errorResult(fmt.Errorf("参数 tool_name 是必需的")), nil
 	}
 
-	var params map[string]interface{}
-	if p, ok := args["params"].(map[string]interface{}); ok {
+	params := make(map[string]any)
+	if p, ok := args["params"].(map[string]any); ok {
 		params = p
-	} else {
-		params = make(map[string]interface{})
 	}
 
 	result, err := tools.ExecuteTool(toolName, params)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return errorResult(err), nil
 	}
 
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return mcp.NewToolResultError("结果序列化失败: " + err.Error()), nil
+		return errorResult(fmt.Errorf("结果序列化失败: %v", err)), nil
 	}
-
-	return mcp.NewToolResultText(string(data)), nil
+	return textResult(string(data)), nil
 }

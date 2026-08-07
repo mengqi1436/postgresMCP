@@ -1,6 +1,6 @@
 # pg-mcp 架构与安全设计
 
-> 基于 context7 官方文档调研（`/mark3labs/mcp-go`、`/jackc/pgx`、`/websites/postgresql_current`）的最佳实践落地。
+> 基于官方 MCP 文档（`/docs/2026-07-28/`）+ 官方 Go SDK（`modelcontextprotocol/go-sdk`）+ `jackc/pgx` 最佳实践落地。
 
 ## 1. 总体架构
 
@@ -9,9 +9,9 @@ MCP 客户端（mcphub / Claude / ZCode）
         │ stdio（JSON-RPC，stdout 专用）
         ▼
 ┌─────────────────────────────────────────┐
-│ main.go                                  │  NewMCPServer + WithToolCapabilities + WithRecovery
+│ main.go                                  │  官方 go-sdk NewServer + Run（协议 2026-07-28）
 │  ├─ 控制工具: pg_list_tools / pg_execute │  （handlers.go）
-│  └─ 操作工具: 注册表动态注册              │  （operation_tools.go）
+│  └─ 操作工具: 注册表动态注册              │  （operation_tools.go + schema.go）
 ├─────────────────────────────────────────┤
 │ tools/                                   │
 │  ├─ registry.go   注册中心（与 MCP 解耦） │  restricted 工具白名单在此执行
@@ -33,19 +33,21 @@ MCP 客户端（mcphub / Claude / ZCode）
 **设计原则**（与 dm-mcp 一致）：
 - **单实例单连接**：一个 MCP 进程只服务一个数据库；多库由 mcphub 编排多实例
 - **工具与 MCP 解耦**：`tools.ToolHandler` 统一签名 `func(map[string]interface{}) (interface{}, error)`，既被 MCP 直接调用，也被 `pg_execute` 统一入口调用
-- **统一返回**：成功返回 JSON（`json.MarshalIndent` → `NewToolResultText`）；业务错误 `NewToolResultError`（会话继续）；系统故障 `return nil, err`（协议级错误）
+- **统一返回**：成功返回 JSON（`json.MarshalIndent` → `textResult`）；业务错误 `errorResult`（IsError=true，会话继续）；系统故障 `return nil, err`（协议级错误）
 
-## 2. mcp-go 最佳实践落地
+## 2. 官方 SDK / MCP 协议（2026-07-28）落地
 
 | 实践 | 出处 | 落地 |
 |---|---|---|
-| `server.WithRecovery()` | mcp-go 生产建议 | main.go：handler panic 不崩溃服务器 |
-| stdio 日志走 stderr | mcp-go stdio 文档 | 全部日志 `log` 包（默认 stderr）/ `fmt.Fprintf(os.Stderr, ...)`；**禁用 fmt.Printf**（dm-mcp config 的隐患，不继承） |
-| builder API schema | tools.mdx | operation_tools.go 参数名→类型映射表生成 schema |
-| 错误分级 | tools.mdx | 业务错误 `NewToolResultError(msg), nil`；系统故障 `return nil, err` |
-| ServeStdio + 信号处理 | stdio.mdx | goroutine 跑 ServeStdio，主 goroutine 等 SIGINT/SIGTERM 清理连接池 |
-
-注：调研文档提到的 `s.Shutdown(ctx)` 在 v0.57.0 未导出，采用信号触发 `database.Close()` 退出（stdio 子进程标准做法）。
+| 官方 Go SDK | docs 2026-07-28 的 Go 教程 | `mcp.NewServer` + `s.AddTool`（mark3labs v0.57.0 已停更，最高仅 2025-11-25，故整体迁移） |
+| stateless 请求 | spec 2026-07-28（SEP-2575） | 协议版本/客户端能力/身份经 `_meta` 随每个请求携带，SDK 自动处理，无初始化握手 |
+| `server/discover` | spec server/discover | SDK 实现；返回 `supportedVersions`（2026-07-28…2024-11-05）与能力协商 |
+| 变更通知 | spec subscriptions/listen | 工具注册即广告 `tools.listChanged:true`，SDK 在增删工具时自动推送 `notifications/tools/list_changed` |
+| 工具 `title` + 完整 schema | spec tools | schema.go 集中映射：参数类型表 + `required` 表 + 描述表，`buildSchema` 生成 JSON Schema；`title` 由描述首句推导 |
+| handler panic 不崩溃 | 原 WithRecovery 行为保留 | operation_tools.go handler 包装器内 `recover()`，panic 转 IsError 结果 |
+| stdio 日志走 stderr | docs stdio 最佳实践 | `log` 包 + `slog`（TextHandler → stderr）；**禁用 fmt.Printf**（dm-mcp config 的隐患，不继承） |
+| 错误分级 | spec tools/call | 业务错误 `errorResult`（IsError=true，Content 为错误文本）；系统故障 `return nil, err` |
+| 生命周期 | SDK `Run` | `signal.NotifyContext` + `s.Run(ctx, &mcp.StdioTransport{})`：客户端断开或 SIGINT/SIGTERM 时返回，统一 `database.Close()` |
 
 ## 3. pgx 最佳实践落地
 
@@ -101,10 +103,13 @@ MCP 客户端（mcphub / Claude / ZCode）
 
 ```
 D:\MCP\postgresCLI\
-├── go.mod                  # module pg-mcp（mcp-go v0.57.0 + pgx v5.10.0）
-├── main.go                 # stdio 入口 + 控制工具注册 + 信号处理
-├── handlers.go             # pg_list_tools / pg_execute
-├── operation_tools.go      # 注册表 → MCP 动态注册 + 参数类型映射
+├── go.mod                  # module pg-mcp（官方 go-sdk v1.7.0 + pgx v5.10.0 + jsonschema-go）
+├── main.go                 # stdio 入口 + 控制工具注册 + 信号感知 Run 生命周期
+├── handlers.go             # textResult/errorResult + pg_list_tools / pg_execute
+├── operation_tools.go      # 注册表 → MCP 动态注册 + handler 包装（含 panic 恢复）
+├── schema.go               # 参数类型/required/描述/title 集中映射 + buildSchema
+├── schema_test.go          # schema 生成器单元测试
+├── server_test.go          # in-memory transport 集成测试（tools/list + 控制工具调用）
 ├── config/config.go        # PG_* env + DSN 拼装（runtime 参数）
 ├── database/connection.go  # pgxpool 单例 + 扫描层 + numeric 解码器 + 6 个执行原语
 ├── tools/
@@ -123,6 +128,7 @@ D:\MCP\postgresCLI\
 │   ├── backup.go           # 逻辑/物理备份(4)
 │   ├── import_csv.go       # COPY 导入/导出(2)
 │   └── instance.go         # 建库/启停(6)
+├── .github/workflows/release.yml  # test(vet+test) → build → release
 ├── pg-mcp.exe              # 编译产物
 └── README.md / DESIGN.md / TOOLS.md
 ```
@@ -131,3 +137,9 @@ D:\MCP\postgresCLI\
 
 - 工具/参数 snake_case、动词_名词；批量变体 `batch_` 前缀
 - 控制工具 `pg_` 前缀；操作工具与 dm-mcp 同名对应（便于 Agent 提示词复用）
+
+## 8. 测试与 CI
+
+- **schema_test.go**（纯单元，无需 DB）：schema 类型/required/描述/title 断言；全部注册工具 schema 完整性校验（每个 Params 都有对应 property，required 都在 Params 内）
+- **server_test.go**（官方 SDK `NewInMemoryTransports` 集成）：connect → `tools/list`（81 个工具、title/schema 非空）→ 控制工具调用（`pg_list_tools` / `pg_execute` 分派链路）；依赖 DB 的 `query` 用例在无 PG 环境自动 `t.Skip`
+- CI（release.yml `test` job）：`go vet ./...` + `go test ./...`（无需 PG 即可绿），通过后才进入 build/release

@@ -1,9 +1,10 @@
 # pg-mcp — PostgreSQL 数据库 MCP 服务器
 
-基于 Go + [mcp-go](https://github.com/mark3labs/mcp-go) + [pgx v5](https://github.com/jackc/pgx) 的 PostgreSQL 数据库 MCP 服务器，与 `dm-mcp`（达梦版）架构对等：**单实例单库、stdio 传输、81 个工具、双安全模式**。
+基于 Go + [官方 MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)（协议 **2026-07-28**）+ [pgx v5](https://github.com/jackc/pgx) 的 PostgreSQL 数据库 MCP 服务器，与 `dm-mcp`（达梦版）架构对等：**单实例单库、stdio 传输、81 个工具、双安全模式**。
 
 ## 特性
 
+- **最新 MCP 协议（2026-07-28）**：官方 SDK 实现 stateless 请求（`_meta` 携带协议版本/能力/身份）、`server/discover` 发现与版本协商、`subscriptions/listen` 变更通知流；`tools/list` 返回带 `title` 与完整 JSON Schema（`required`/类型/描述）的工具定义
 - **stdio 传输**：作为 MCP 客户端（mcphub/Claude/ZCode 等）的子进程运行
 - **双轨工具注册**：`pg_list_tools` / `pg_execute` 控制入口 + 每个工具也可直接被 MCP 客户端调用
 - **restricted / unrestricted 双安全模式**（`PG_ACCESS_MODE`）：

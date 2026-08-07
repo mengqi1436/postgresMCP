@@ -58,14 +58,6 @@ func GetAllTools(category string) []ToolInfo {
 	return result
 }
 
-// GetToolInfo 获取单个工具信息
-func GetToolInfo(name string) (ToolInfo, bool) {
-	mu.RLock()
-	defer mu.RUnlock()
-	info, exists := toolRegistry[name]
-	return info, exists
-}
-
 // ExecuteTool 执行指定工具。restricted 模式下先做工具级白名单检查
 // （连接级 default_transaction_read_only 是第二道防线）。
 func ExecuteTool(name string, params map[string]interface{}) (interface{}, error) {
