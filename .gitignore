@@ -1,0 +1,7 @@
+# 构建产物
+pg-mcp.exe
+
+# 本地工具元数据 / 测试残留
+.playwright-cli/
+.codeartsdoer/
+.zcode/
