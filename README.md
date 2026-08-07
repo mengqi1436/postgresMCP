@@ -1,12 +1,12 @@
 # pg-mcp — PostgreSQL 数据库 MCP 服务器
 
-基于 Go + [官方 MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)（协议 **2026-07-28**）+ [pgx v5](https://github.com/jackc/pgx) 的 PostgreSQL 数据库 MCP 服务器，与 `dm-mcp`（达梦版）架构对等：**单实例单库、stdio 传输、81 个工具、双安全模式**。
+基于 Go + [官方 MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)（协议 **2026-07-28**）+ [pgx v5](https://github.com/jackc/pgx) 的 PostgreSQL 数据库 MCP 服务器，与 `dm-mcp`（达梦版）架构对等：**单实例单库、stdio 传输、79 个工具、双安全模式**。
 
 ## 特性
 
 - **最新 MCP 协议（2026-07-28）**：官方 SDK 实现 stateless 请求（`_meta` 携带协议版本/能力/身份）、`server/discover` 发现与版本协商、`subscriptions/listen` 变更通知流；`tools/list` 返回带 `title` 与完整 JSON Schema（`required`/类型/描述）的工具定义
 - **stdio 传输**：作为 MCP 客户端（mcphub/Claude/ZCode 等）的子进程运行
-- **双轨工具注册**：`pg_list_tools` / `pg_execute` 控制入口 + 每个工具也可直接被 MCP 客户端调用
+- **原生 MCP 工具**：79 个操作工具直接经 `tools/list` 发现、`tools/call` 调用（协议原生方式，无中间分发层）
 - **restricted / unrestricted 双安全模式**（`PG_ACCESS_MODE`）：
   - `restricted`（默认）：连接级 `default_transaction_read_only=on` + `statement_timeout` + 工具类别白名单（query/metadata/monitoring/explain_plan），只读防线三层
   - `unrestricted`：全能力，保留强制 WHERE、confirm 门禁、标识符校验、值参数化
@@ -91,7 +91,18 @@ pg-mcp.exe
 ## 文档
 
 - [DESIGN.md](./DESIGN.md) — 架构与安全设计
-- [TOOLS.md](./TOOLS.md) — 81 个工具完整清单
+- [TOOLS.md](./TOOLS.md) — 79 个工具完整清单
+
+## 开发与测试
+
+```bash
+# 测试（测试钩子位于 //go:build test 文件，需 -tags test；生产 go build 不含任何测试钩子）
+go test -tags test ./...
+go vet -tags test ./...
+
+# 变异测试（gremlins，需 -tags test）
+gremlins unleash --tags test --timeout-coefficient 20 ./tools
+```
 
 ## 与 dm-mcp 的关键差异
 

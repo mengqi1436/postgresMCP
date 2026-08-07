@@ -1,14 +1,7 @@
-# pg-mcp 工具清单（81 个 / 12 类）
+# pg-mcp 工具清单（79 个 / 10 类）
 
-> 所有工具均可通过 `pg_execute`（`tool_name` + `params`）统一调用，也可被 MCP 客户端直接调用。
+> 所有工具均为原生 MCP 工具，经 `tools/list` 发现、`tools/call` 调用。
 > restricted 模式下仅 **query / metadata / monitoring** 类别及 `explain_plan` 可用。
-
-## control（2）
-
-| 工具 | 功能 | 关键参数 |
-|---|---|---|
-| `pg_list_tools` | 列出所有工具（可按类别筛选） | category |
-| `pg_execute` | 统一执行入口 | tool_name, params |
 
 ## query（5）
 

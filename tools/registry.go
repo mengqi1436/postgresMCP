@@ -44,6 +44,14 @@ func RegisterTool(info ToolInfo, handler ToolHandler) {
 	toolHandlers[info.Name] = handler
 }
 
+// UnregisterTool 注销工具（测试清理用）。
+func UnregisterTool(name string) {
+	mu.Lock()
+	defer mu.Unlock()
+	delete(toolRegistry, name)
+	delete(toolHandlers, name)
+}
+
 // GetAllTools 获取所有工具（可按类别筛选）
 func GetAllTools(category string) []ToolInfo {
 	mu.RLock()
@@ -70,10 +78,6 @@ func ExecuteTool(name string, params map[string]interface{}) (interface{}, error
 		return nil, fmt.Errorf("工具 '%s' 不存在", name)
 	}
 
-	if params == nil {
-		params = make(map[string]interface{})
-	}
-
 	if config.Get().IsRestricted() &&
 		!restrictedAllowedCategories[info.Category] &&
 		!restrictedAllowedTools[name] {
@@ -81,21 +85,4 @@ func ExecuteTool(name string, params map[string]interface{}) (interface{}, error
 	}
 
 	return handler(params)
-}
-
-// GetCategories 获取所有类别
-func GetCategories() []string {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	categoryMap := make(map[string]bool)
-	for _, info := range toolRegistry {
-		categoryMap[info.Category] = true
-	}
-
-	var categories []string
-	for cat := range categoryMap {
-		categories = append(categories, cat)
-	}
-	return categories
 }

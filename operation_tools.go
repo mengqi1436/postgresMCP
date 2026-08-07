@@ -10,8 +10,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// registerOperationTools 把内部注册表中的每个工具动态注册为同名 MCP 工具
-// （双轨制：既可通过 pg_execute 统一入口调用，也可被 MCP 客户端直接调用）。
+// registerOperationTools 把内部注册表中的每个工具动态注册为同名原生 MCP 工具，
+// 经 tools/list 发现、tools/call 调用（协议原生方式，无中间分发层）。
 func registerOperationTools(s *mcp.Server) {
 	for _, info := range tools.GetAllTools("") {
 		s.AddTool(buildOperationTool(info), handleOperationTool(info.Name))
@@ -46,9 +46,6 @@ func handleOperationTool(toolName string) mcp.ToolHandler {
 			if err := json.Unmarshal(req.Params.Arguments, &params); err != nil {
 				return errorResult(fmt.Errorf("参数解析失败: %v", err)), nil
 			}
-		}
-		if params == nil {
-			params = make(map[string]any)
 		}
 
 		out, err := tools.ExecuteTool(toolName, params)

@@ -28,8 +28,8 @@ type Config struct {
 }
 
 var (
-	cached     *Config
-	loadOnce   sync.Once
+	cached   *Config
+	loadOnce sync.Once
 )
 
 // LoadConfig 读取 PG_* 环境变量。日志一律走 stderr（stdio 传输下 stdout 只能跑 JSON-RPC）。

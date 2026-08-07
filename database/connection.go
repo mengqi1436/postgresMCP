@@ -14,19 +14,31 @@ import (
 	"pg-mcp/config"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var (
-	pool    *pgxpool.Pool
+	pool    Pool
 	once    sync.Once
 	initErr error
 )
 
+// Pool 是进程级连接池的最小接口。真实池 pgxpool.Pool 与测试用
+// pgxmock.PgxPoolIface 均满足，便于用 mock 补齐 DB 层测试。
+type Pool interface {
+	Ping(ctx context.Context) error
+	Close()
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Begin(ctx context.Context) (pgx.Tx, error)
+	Acquire(ctx context.Context) (*pgxpool.Conn, error)
+}
+
 // GetPool 返回进程级单例连接池（惰性初始化）。
 // 启动时用 pool.Ping 做就绪检查（pgx 官方推荐的 readiness 检查方式）。
-func GetPool(ctx context.Context) (*pgxpool.Pool, error) {
+func GetPool(ctx context.Context) (Pool, error) {
 	once.Do(func() {
 		cfg := config.LoadConfig()
 		if !cfg.IsValid() {
@@ -134,13 +146,8 @@ func ExecuteStatements(ctx context.Context, statements []Statement) error {
 		return fmt.Errorf("获取数据库连接失败: %w", err)
 	}
 
-	conn, err := p.Acquire(ctx)
-	if err != nil {
-		return fmt.Errorf("获取连接失败: %w", err)
-	}
-	defer conn.Release()
-
-	tx, err := conn.Begin(ctx)
+	// 用池级 Begin（内部获取连接，事务结束自动归还），真池与 pgxmock 均支持。
+	tx, err := p.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("开启事务失败: %w", err)
 	}
@@ -166,13 +173,8 @@ func QueryInAbortedTx(ctx context.Context, sqlStr string, args ...any) ([]map[st
 		return nil, fmt.Errorf("获取数据库连接失败: %w", err)
 	}
 
-	conn, err := p.Acquire(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("获取连接失败: %w", err)
-	}
-	defer conn.Release()
-
-	tx, err := conn.Begin(ctx)
+	// 用池级 Begin（事务回滚后连接自动归还），真池与 pgxmock 均支持。
+	tx, err := p.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("开启事务失败: %w", err)
 	}

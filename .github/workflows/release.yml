@@ -22,10 +22,12 @@ jobs:
           cache: true
 
       - name: Vet
-        run: go vet ./...
+        # 测试钩子（SetPoolForTest/ResetForTest）在 //go:build test 标签文件里，
+        # 测试构建需 -tags test；生产 go build 天然排除。
+        run: go vet -tags test ./...
 
       - name: Test
-        run: go test ./...
+        run: go test -tags test ./...
 
   build:
     name: Build (${{ matrix.target }})

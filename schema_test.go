@@ -94,6 +94,16 @@ func TestToolTitleDerivation(t *testing.T) {
 	}
 }
 
+// 描述以句号/换行开头（IndexAny 命中下标 0）时，title 回退为工具名而非空串。
+func TestToolTitleLeadingPunctuation(t *testing.T) {
+	for _, d := range []string{"。以句号开头", "\n以换行开头"} {
+		info := tools.ToolInfo{Name: "edge", Description: d}
+		if got := toolTitle(info); got != "edge" {
+			t.Fatalf("toolTitle(%q) = %q, want edge", d, got)
+		}
+	}
+}
+
 func TestAllRegisteredToolsHaveObjectSchemas(t *testing.T) {
 	infos := tools.GetAllTools("")
 	if len(infos) < 70 {

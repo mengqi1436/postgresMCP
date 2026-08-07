@@ -6,16 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"pg-mcp/tools"
-
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// 注册全部工具（79 个操作工具 + 2 个控制工具）的测试用服务器。
+// 注册全部 79 个操作工具的测试用服务器。
 func newTestServer(t *testing.T) (*mcp.Server, *mcp.ClientSession) {
 	t.Helper()
 	server := mcp.NewServer(&mcp.Implementation{Name: "test-server", Version: "0.0.1"}, nil)
-	registerControlTools(server)
 	registerOperationTools(server)
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.0.1"}, nil)
@@ -53,8 +50,8 @@ func TestServerListsAllTools(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
-	if len(listRes.Tools) != 81 {
-		t.Fatalf("tools count = %d, want 81", len(listRes.Tools))
+	if len(listRes.Tools) != 79 {
+		t.Fatalf("tools count = %d, want 79", len(listRes.Tools))
 	}
 	for _, tool := range listRes.Tools {
 		if tool.Name == "" {
@@ -87,64 +84,54 @@ func TestServerListsAllTools(t *testing.T) {
 	}
 }
 
-func TestCallControlTools(t *testing.T) {
+// TestOperationToolDispatch：工具分派链路（不依赖 DB）——存在/不存在工具、
+// 畸形参数、handler panic 恢复。
+func TestOperationToolDispatch(t *testing.T) {
+	// handler panic 恢复：先注册一个会 panic 的测试工具（随服务器一起注册），
+	// 确认包装器把 panic 转 IsError 结果、服务器不崩溃。
+	registerPanicTool(t)
 	_, cs := newTestServer(t)
 	ctx := context.Background()
 
-	// pg_list_tools：无需数据库，返回内部注册表工具目录 JSON
-	// （只含 79 个操作工具，不含 pg_list_tools/pg_execute 两个控制工具）
-	res, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "pg_list_tools"})
-	if err != nil {
-		t.Fatalf("pg_list_tools call: %v", err)
-	}
-	if res.IsError {
-		t.Fatalf("pg_list_tools returned error: %s", resultText(res))
-	}
-	var listResp struct {
-		Total int `json:"total"`
-	}
-	if err := json.Unmarshal([]byte(resultText(res)), &listResp); err != nil {
-		t.Fatalf("parse pg_list_tools result: %v", err)
-	}
-	if want := len(tools.GetAllTools("")); listResp.Total != want {
-		t.Fatalf("pg_list_tools total = %d, want %d", listResp.Total, want)
+	// 未注册的工具：SDK 协议级错误（unknown tool），不是业务结果
+	_, err := cs.CallTool(ctx, &mcp.CallToolParams{Name: "no_such_tool"})
+	if err == nil {
+		t.Fatalf("call nonexistent tool: expected protocol error")
 	}
 
-	// pg_execute 缺 tool_name：业务错误
-	res, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "pg_execute"})
-	if err != nil {
-		t.Fatalf("pg_execute(empty) call: %v", err)
-	}
-	if !res.IsError || !strings.Contains(resultText(res), "tool_name 是必需的") {
-		t.Fatalf("pg_execute(empty) = isError:%v text:%q", res.IsError, resultText(res))
-	}
-
-	// pg_execute 指向不存在的工具：业务错误
-	res, err = cs.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "pg_execute",
-		Arguments: map[string]any{"tool_name": "no_such_tool"},
+	// 畸形参数（JSON 数组而非对象）：业务错误且报"参数解析失败"，不崩溃
+	res, err := cs.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "query",
+		Arguments: []any{"not", "an", "object"},
 	})
 	if err != nil {
-		t.Fatalf("pg_execute(nonexistent) call: %v", err)
+		t.Fatalf("call with malformed args: %v", err)
 	}
-	if !res.IsError || !strings.Contains(resultText(res), "不存在") {
-		t.Fatalf("pg_execute(nonexistent) = isError:%v text:%q", res.IsError, resultText(res))
+	if !res.IsError || !strings.Contains(resultText(res), "参数解析失败") {
+		t.Fatalf("malformed args = isError:%v text:%q", res.IsError, resultText(res))
 	}
 
-	// pg_execute 分派到真实注册工具（database_service_status 不依赖 DB 连接）：
-	// 默认 restricted 模式或缺少 PG_DATA_DIR 都会得到确定的业务错误，但证明分派链路可用。
-	res, err = cs.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "pg_execute",
-		Arguments: map[string]any{"tool_name": "database_service_status"},
-	})
+	// 工具缺失必填参数：业务错误（"参数 sql 是必需的"）
+	res, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "query"})
 	if err != nil {
-		t.Fatalf("pg_execute(database_service_status) call: %v", err)
+		t.Fatalf("call query without args: %v", err)
+	}
+	if !res.IsError || !strings.Contains(resultText(res), "sql 是必需的") {
+		t.Fatalf("query without args = isError:%v text:%q", res.IsError, resultText(res))
+	}
+
+	// handler panic 恢复：调用 panic 测试工具，确认返回 IsError 而非崩溃
+	res, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "panic_test_tool"})
+	if err != nil {
+		t.Fatalf("call panic tool: %v", err)
 	}
 	if !res.IsError {
-		t.Fatalf("pg_execute(database_service_status) expected error, got %q", resultText(res))
+		t.Fatalf("panic tool expected error result, got %q", resultText(res))
 	}
-	if strings.Contains(resultText(res), "不存在") {
-		t.Fatalf("pg_execute dispatch failed: %q", resultText(res))
+	// 服务器仍然存活：再调一次未注册工具，应仍返回协议级错误而非崩溃
+	_, err = cs.CallTool(ctx, &mcp.CallToolParams{Name: "no_such_tool_2"})
+	if err == nil {
+		t.Fatalf("server crashed after panic: expected protocol error")
 	}
 }
 

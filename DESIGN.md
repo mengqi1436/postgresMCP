@@ -10,12 +10,11 @@ MCP 客户端（mcphub / Claude / ZCode）
         ▼
 ┌─────────────────────────────────────────┐
 │ main.go                                  │  官方 go-sdk NewServer + Run（协议 2026-07-28）
-│  ├─ 控制工具: pg_list_tools / pg_execute │  （handlers.go）
-│  └─ 操作工具: 注册表动态注册              │  （operation_tools.go + schema.go）
+│  └─ 操作工具: 注册表动态注册              │  （operation_tools.go + schema.go + result.go）
 ├─────────────────────────────────────────┤
 │ tools/                                   │
 │  ├─ registry.go   注册中心（与 MCP 解耦） │  restricted 工具白名单在此执行
-│  ├─ query/dml/ddl/metadata/...           │  81 个工具，init() 自注册
+│  ├─ query/dml/ddl/metadata/...           │  79 个工具，init() 自注册
 │  └─ binexec.go    外部二进制执行器        │  pg_dump / pg_ctl / pg_basebackup
 ├─────────────────────────────────────────┤
 │ database/connection.go                   │  pgxpool 单例（MaxConns=10）
@@ -32,7 +31,7 @@ MCP 客户端（mcphub / Claude / ZCode）
 
 **设计原则**（与 dm-mcp 一致）：
 - **单实例单连接**：一个 MCP 进程只服务一个数据库；多库由 mcphub 编排多实例
-- **工具与 MCP 解耦**：`tools.ToolHandler` 统一签名 `func(map[string]interface{}) (interface{}, error)`，既被 MCP 直接调用，也被 `pg_execute` 统一入口调用
+- **工具与 MCP 解耦**：`tools.ToolHandler` 统一签名 `func(map[string]interface{}) (interface{}, error)`，经原生 `tools/call` 被 MCP 客户端直接调用
 - **统一返回**：成功返回 JSON（`json.MarshalIndent` → `textResult`）；业务错误 `errorResult`（IsError=true，会话继续）；系统故障 `return nil, err`（协议级错误）
 
 ## 2. 官方 SDK / MCP 协议（2026-07-28）落地
@@ -104,14 +103,17 @@ MCP 客户端（mcphub / Claude / ZCode）
 ```
 D:\MCP\postgresCLI\
 ├── go.mod                  # module pg-mcp（官方 go-sdk v1.7.0 + pgx v5.10.0 + jsonschema-go）
-├── main.go                 # stdio 入口 + 控制工具注册 + 信号感知 Run 生命周期
-├── handlers.go             # textResult/errorResult + pg_list_tools / pg_execute
+├── main.go                 # stdio 入口 + 信号感知 Run 生命周期
+├── result.go               # textResult/errorResult 结果助手
 ├── operation_tools.go      # 注册表 → MCP 动态注册 + handler 包装（含 panic 恢复）
 ├── schema.go               # 参数类型/required/描述/title 集中映射 + buildSchema
 ├── schema_test.go          # schema 生成器单元测试
-├── server_test.go          # in-memory transport 集成测试（tools/list + 控制工具调用）
+├── operation_tools_test.go # panic 恢复测试工具注册
+├── server_test.go          # in-memory transport 集成测试（tools/list + 分派链路）
 ├── config/config.go        # PG_* env + DSN 拼装（runtime 参数）
+├── config/test_hooks.go    # //go:build test：ResetForTest（仅测试构建）
 ├── database/connection.go  # pgxpool 单例 + 扫描层 + numeric 解码器 + 6 个执行原语
+├── database/test_hooks.go  # //go:build test：SetPoolForTest（仅测试构建）
 ├── tools/
 │   ├── registry.go         # 注册中心 + restricted 白名单
 │   ├── utils.go            # 参数提取 / 标识符校验 / 引用
@@ -136,10 +138,15 @@ D:\MCP\postgresCLI\
 ## 7. 命名规范
 
 - 工具/参数 snake_case、动词_名词；批量变体 `batch_` 前缀
-- 控制工具 `pg_` 前缀；操作工具与 dm-mcp 同名对应（便于 Agent 提示词复用）
+- 操作工具与 dm-mcp 同名对应（便于 Agent 提示词复用）
 
 ## 8. 测试与 CI
 
 - **schema_test.go**（纯单元，无需 DB）：schema 类型/required/描述/title 断言；全部注册工具 schema 完整性校验（每个 Params 都有对应 property，required 都在 Params 内）
-- **server_test.go**（官方 SDK `NewInMemoryTransports` 集成）：connect → `tools/list`（81 个工具、title/schema 非空）→ 控制工具调用（`pg_list_tools` / `pg_execute` 分派链路）；依赖 DB 的 `query` 用例在无 PG 环境自动 `t.Skip`
-- CI（release.yml `test` job）：`go vet ./...` + `go test ./...`（无需 PG 即可绿），通过后才进入 build/release
+- **server_test.go**（官方 SDK `NewInMemoryTransports` 集成）：connect → `tools/list`（79 个工具、title/schema 非空）→ 分派链路（未注册工具协议错误 / 畸形参数 / 必填缺失 / handler panic 恢复后服务器存活）；依赖 DB 的 `query` 用例在无 PG 环境自动 `t.Skip`
+- **tools/**：registry 白名单（restricted 拦截写工具、放行只读）、utils 标识符/引用安全助手
+- **config/**：GetDSN 的 restricted（read_only/search_path/超时）与 unrestricted 差异、RawDSN 覆盖、MaskedDSN 脱敏
+- **database/**：pgxmock 注入的查询/执行/事务（提交与回滚）/COPY 解码原语、numeric 二进制解码、normalizeValue
+- **变异测试**（gremlins）：main/config 功效 100%、database ~100%、tools 99.23%（仅剩等价变异）；tools 变异覆盖率 61%、database 80%
+- **测试钩子与生产隔离**：`SetPoolForTest` / `ResetForTest` 放在 `//go:build test` 标签文件（`database/test_hooks.go`、`config/test_hooks.go`），**生产 `go build` 二进制不含任何测试钩子**（经 `go tool nm` 验证）；测试构建需 `-tags test`
+- CI（release.yml `test` job）：`go vet -tags test ./...` + `go test -tags test ./...`（无需 PG 即可绿），通过后才进入 build/release

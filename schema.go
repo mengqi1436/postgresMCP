@@ -148,7 +148,6 @@ var toolRequired = map[string][]string{
 	"physical_backup": {"backup_dir"}, "physical_restore": {"backup_dir", "confirm"},
 	"export_table_data": {"table_name"}, "batch_import_csv": {"files"},
 	"create_database": {"database_name"}, "delete_database": {"database_name", "confirm"},
-	"pg_execute": {"tool_name"},
 }
 
 // buildSchema 为工具生成输入 JSON Schema（type=object, properties, required）。
