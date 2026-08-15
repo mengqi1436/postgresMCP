@@ -2,6 +2,10 @@
 pg-mcp.exe
 pg-mcp-linux
 
+# npm 包装包（下载的二进制由上方 pg-mcp.* 规则忽略）
+npm/node_modules/
+npm/package-lock.json
+
 # 本地工具元数据 / 测试残留
 .playwright-cli/
 .codeartsdoer/

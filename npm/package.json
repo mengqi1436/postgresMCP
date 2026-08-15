@@ -1,0 +1,38 @@
+{
+  "name": "@pg-mcp/server",
+  "version": "0.0.0",
+  "description": "PostgreSQL 数据库 MCP 服务器（Go 二进制包装，stdio 传输）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mengqi1436/postgresMCP.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "postgresql",
+    "postgres",
+    "database"
+  ],
+  "bin": {
+    "pg-mcp": "bin/pg-mcp.js"
+  },
+  "files": [
+    "bin/pg-mcp.js",
+    "scripts",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/download.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}
