@@ -20,7 +20,10 @@
 ## 快速开始
 
 ```bash
-# 构建
+# npm 安装（无需 Go 环境，postinstall 自动从 GitHub Releases 下载对应平台二进制）
+npm i -g @pg-mcp/server
+
+# 或从源码构建
 go build -o pg-mcp.exe .
 
 # 配置（环境变量）
