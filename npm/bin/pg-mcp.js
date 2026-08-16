@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// postgresqlmcp-server launcher
+// pgsql-server-mcp launcher
 // 定位 postinstall 下载的 Go 二进制并作为子进程运行，透传 stdio
 // （MCP stdio 传输：JSON-RPC 走 stdin/stdout）。
 
@@ -15,7 +15,7 @@ const binPath = path.join(__dirname, process.platform, assetName);
 
 if (!fs.existsSync(binPath)) {
   console.error(`[pg-mcp] 二进制未找到: ${binPath}`);
-  console.error('[pg-mcp] 请运行 npm rebuild postgresqlmcp-server 或重新安装该包。');
+  console.error('[pg-mcp] 请运行 npm rebuild pgsql-server-mcp 或重新安装该包。');
   process.exit(1);
 }
 

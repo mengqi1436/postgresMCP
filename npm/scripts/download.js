@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// postgresqlmcp-server postinstall
+// pgsql-server-mcp postinstall
 // 根据当前平台/架构，从 GitHub Releases 下载对应版本的 Go 二进制，
 // 存到 bin/<platform>/ 下供 launcher (bin/pg-mcp.js) 调用。
 // 版本来自 package.json（CI 发布时与 GitHub Release tag 对齐，如 v2.2.0）。
@@ -46,7 +46,7 @@ const destPath = path.join(destDir, asset);
 function download(url, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https:') ? https : http;
-    const req = client.get(url, { headers: { 'User-Agent': 'postgresqlmcp-server-install' } }, (res) => {
+    const req = client.get(url, { headers: { 'User-Agent': 'pgsql-server-mcp-install' } }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         if (redirectsLeft <= 0) {
