@@ -13,8 +13,8 @@ func registerAdvancedTools() {
 	RegisterTool(ToolInfo{
 		Name:        "execute_sql",
 		Category:    "advanced",
-		Description: "执行任意 SQL，按语句前缀自动分流 SELECT/DDL/DML。参数: sql(必需), params(可选, $n 绑定值数组)",
-		Params:      []string{"sql", "params"},
+		Description: "执行任意 SQL，按语句前缀自动分流 SELECT/DDL/DML。参数: sql(必需), params(可选, $n 绑定值数组), limit(可选, SELECT 分支返回行数上限, 默认500), detail_level(可选, summary|detail|full; summary 只返回概览最省 token, detail 返回完整行(默认), full 提高默认行数上限到10000); 超限返回 truncated=true 与精确 total",
+		Params:      []string{"sql", "params", "limit", "detail_level"},
 	}, handleExecuteSQL)
 
 	RegisterTool(ToolInfo{
@@ -86,11 +86,14 @@ func handleExecuteSQL(params map[string]interface{}) (interface{}, error) {
 	args := getArray(params, "params")
 	switch classifySQL(sqlStr) {
 	case "query":
-		results, err := database.Query(ctx, sqlStr, args...)
+		detail := getDetailLevel(params)
+		qr, err := database.QueryLimit(ctx, maxRowsForDetailLevel(params, detail), sqlStr, args...)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{"type": "query", "rows": results, "count": len(results)}, nil
+		payload := queryResultPayload(qr, detail)
+		payload["type"] = "query"
+		return payload, nil
 	case "ddl":
 		if len(args) == 0 {
 			if err := database.ExecuteDDL(ctx, sqlStr); err != nil {
@@ -150,15 +153,18 @@ func handleCallFunction(params map[string]interface{}) (interface{}, error) {
 	ctx, cancel := toolContext()
 	defer cancel()
 
-	results, err := database.Query(ctx, sqlStr, args...)
+	qr, err := database.QueryLimit(ctx, DefaultMaxRows, sqlStr, args...)
 	if err != nil {
 		return nil, err
 	}
 	var result interface{}
-	if len(results) > 0 {
-		result = results[0]["result"]
+	if len(qr.Rows) > 0 {
+		result = qr.Rows[0]["result"]
 	}
-	return map[string]interface{}{"success": true, "result": result, "rows": results}, nil
+	return map[string]interface{}{
+		"success": true, "result": result, "rows": qr.Rows,
+		"total": qr.Total, "truncated": qr.Truncated,
+	}, nil
 }
 
 func handleCallProcedure(params map[string]interface{}) (interface{}, error) {
@@ -186,12 +192,15 @@ func handleCallProcedure(params map[string]interface{}) (interface{}, error) {
 	ctx, cancel := toolContext()
 	defer cancel()
 
-	// CALL 可能返回结果集（INOUT 参数），按查询执行
-	results, err := database.Query(ctx, sqlStr, args...)
+	// CALL 可能返回结果集（INOUT 参数），按查询执行（默认最多 500 行）
+	qr, err := database.QueryLimit(ctx, DefaultMaxRows, sqlStr, args...)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{"success": true, "rows": results, "count": len(results)}, nil
+	return map[string]interface{}{
+		"success": true, "rows": qr.Rows, "count": len(qr.Rows),
+		"total": qr.Total, "truncated": qr.Truncated,
+	}, nil
 }
 
 func handleExplainPlan(params map[string]interface{}) (interface{}, error) {

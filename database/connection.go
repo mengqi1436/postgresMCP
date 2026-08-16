@@ -84,8 +84,27 @@ func GetPool(ctx context.Context) (Pool, error) {
 	return pool, initErr
 }
 
-// Query 执行 SELECT 并返回通用行数据（列名 → 值）。
+// QueryResult 携带行数据、截断标志与精确总数。
+type QueryResult struct {
+	Rows      []map[string]any
+	Truncated bool // 是否因达到 maxRows 被截断
+	Total     int  // 总行数（截断时通过继续扫描计数得到，精确值）
+}
+
+// Query 执行 SELECT 并返回通用行数据（列名 → 值），不限制行数
+// （兼容既有调用点，内部委托 QueryLimit）。
 func Query(ctx context.Context, sqlStr string, args ...any) ([]map[string]any, error) {
+	qr, err := QueryLimit(ctx, 0, sqlStr, args...)
+	if err != nil {
+		return nil, err
+	}
+	return qr.Rows, nil
+}
+
+// QueryLimit 执行 SELECT 并按 maxRows 限制返回行数；maxRows<=0 表示不限制。
+// 达到上限后继续读取剩余行仅计数，得到精确 Total——pgx 的 rows.Close()
+// 本就会 drain 剩余行以复用连接，因此计数不增加额外 DB/网络开销。
+func QueryLimit(ctx context.Context, maxRows int, sqlStr string, args ...any) (*QueryResult, error) {
 	p, err := GetPool(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("获取数据库连接失败: %w", err)
@@ -97,7 +116,7 @@ func Query(ctx context.Context, sqlStr string, args ...any) ([]map[string]any, e
 	}
 	defer rows.Close()
 
-	return scanRows(rows)
+	return scanRowsLimited(rows, maxRows)
 }
 
 // Execute 执行 DML/DDL 并返回影响行数。
@@ -210,12 +229,28 @@ func CopyFromReader(ctx context.Context, r io.Reader, copySQL string) (int64, er
 	return tag.RowsAffected(), nil
 }
 
-// scanRows 用 rows.Values() 通用扫描任意列，构建 map 行。
+// scanRows 用 rows.Values() 通用扫描任意列，构建 map 行（不限制行数）。
 func scanRows(rows pgx.Rows) ([]map[string]any, error) {
+	qr, err := scanRowsLimited(rows, 0)
+	if err != nil {
+		return nil, err
+	}
+	return qr.Rows, nil
+}
+
+// scanRowsLimited 用 rows.Values() 通用扫描任意列，构建 map 行；
+// maxRows<=0 不限制；达到上限后继续读取剩余行仅计数（Truncated=true）。
+func scanRowsLimited(rows pgx.Rows, maxRows int) (*QueryResult, error) {
 	fields := rows.FieldDescriptions()
 
-	var results []map[string]any
+	limited := maxRows > 0
+	res := &QueryResult{}
 	for rows.Next() {
+		if limited && len(res.Rows) >= maxRows {
+			res.Truncated = true
+			res.Total++
+			continue
+		}
 		values, err := rows.Values()
 		if err != nil {
 			return nil, err
@@ -224,9 +259,13 @@ func scanRows(rows pgx.Rows) ([]map[string]any, error) {
 		for i, fd := range fields {
 			row[fd.Name] = normalizeValue(fd.DataTypeOID, values[i])
 		}
-		results = append(results, row)
+		res.Rows = append(res.Rows, row)
+		res.Total++
 	}
-	return results, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // normalizeValue 把 pgx 返回值转成 JSON 友好的类型。

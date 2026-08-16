@@ -75,6 +75,23 @@ func TestQualifiedTable(t *testing.T) {
 	}
 }
 
+// clampLimit 边界精确值：1 与 10000 不应钳制，0 与 10001 应回退默认值。
+// 针对 <1 / >10000 的条件边界变异（<=1 / >=10000）在精确边界值上行为不同。
+func TestClampLimitBoundary(t *testing.T) {
+	if got := clampLimit(1); got != 1 {
+		t.Errorf("clampLimit(1) = %d, want 1", got)
+	}
+	if got := clampLimit(10000); got != 10000 {
+		t.Errorf("clampLimit(10000) = %d, want 10000", got)
+	}
+	if got := clampLimit(0); got != DefaultMaxRows {
+		t.Errorf("clampLimit(0) = %d, want %d", got, DefaultMaxRows)
+	}
+	if got := clampLimit(10001); got != DefaultMaxRows {
+		t.Errorf("clampLimit(10001) = %d, want %d", got, DefaultMaxRows)
+	}
+}
+
 func TestParamExtractors(t *testing.T) {
 	params := map[string]interface{}{
 		"str":     "  hello  ",

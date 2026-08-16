@@ -7,11 +7,11 @@
 
 | 工具 | 功能 | 关键参数 |
 |---|---|---|
-| `query` | 执行 SELECT（支持 `$n` 绑定） | sql, params |
+| `query` | 执行 SELECT（支持 `$n` 绑定；支持 detail_level 分级） | sql, params, limit(默认500), detail_level |
 | `query_one` | 查询取第一条（子查询包裹 LIMIT 1） | sql, params |
-| `query_paginated` | 分页查询（自动追加 LIMIT/OFFSET） | sql, page, page_size |
+| `query_paginated` | 分页查询（返回 `has_more` 指示是否还有下一页） | sql, page, page_size |
 | `count` | 统计行数 | table, where |
-| `batch_query` | 批量 SELECT，逐条返回 | queries |
+| `batch_query` | 批量 SELECT，逐条返回（每条最多 200 行） | queries |
 
 ## dml（7）
 
@@ -74,7 +74,7 @@
 
 | 工具 | 功能 | 关键参数 |
 |---|---|---|
-| `execute_sql` | 任意 SQL，按前缀自动分流 query/ddl/dml | sql, params |
+| `execute_sql` | 任意 SQL，按前缀自动分流 query/ddl/dml（SELECT 分支默认最多 500 行；支持 detail_level 分级） | sql, params, limit, detail_level |
 | `execute_transaction` | 多语句事务（全成功提交） | statements |
 | `call_function` | 调用函数（SELECT func(...)） | function_name, params |
 | `call_procedure` | 调用过程（CALL，PG11+） | procedure_name, params |
@@ -138,6 +138,13 @@
 
 ## 统一约定
 
-- **返回**：JSON 文本；批量操作返回 `{success, total, ok_count, fail_count, results}`
+- **返回**：JSON 文本（紧凑格式，无缩进）；批量操作返回 `{success, total, ok_count, fail_count, results}`
 - **错误**：业务错误带上下文信息返回（会话不中断）；restricted 模式拒绝写工具时明确提示切换 `PG_ACCESS_MODE`
 - **超时**：普通工具 60s；导入/备份工具可传 `timeout_seconds`
+
+### 输出与 token 优化
+
+- **行数上限**：查询类工具（`query` / `execute_sql` / `call_function` / `call_procedure`）默认最多返回 500 行，超限返回 `"truncated": true` 与精确 `"total"`，用 `query_paginated` 或 `limit` 参数翻页；批处理工具每条最多 200 行。`limit` 有效范围 1–10000，越界回退默认值（有意不提供"无限"选项，防止大结果撑爆模型上下文）。
+- **分级返回（detail_level）**：`query` / `execute_sql` 支持 `summary` / `detail` / `full` 三档渐进式披露——`summary` 只返回 `count`/`total`/`sample`（前 3 行示例，服务端也只构建示例行，最省 token）；`detail`（默认）返回完整行；`full` 把默认行数上限提升到 10000。模型先 `summary` 概览、需要时再 `detail`/`full`，正是"分类分级"的 token 优化实践。
+- **分页续取**：`query_paginated` 返回 `has_more`（多取一行判定，不额外 COUNT），Agent 据此决定是否翻页。
+- **全局输出预算**：所有工具输出超过 30K 字符（约 8–15K token）时整体截断并追加提示，任何超大返回（如视图/索引全文定义）都不会溢出上下文。

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"unicode/utf8"
 
 	"pg-mcp/tools"
 
@@ -53,10 +54,30 @@ func handleOperationTool(toolName string) mcp.ToolHandler {
 			return errorResult(err), nil
 		}
 
-		data, err := json.MarshalIndent(out, "", "  ")
+		data, err := marshalToolResult(out)
 		if err != nil {
 			return errorResult(fmt.Errorf("结果序列化失败: %v", err)), nil
 		}
-		return textResult(string(data)), nil
+		return textResult(data), nil
 	}
+}
+
+// maxOutputChars 工具输出预算（字符数）：超出即截断并追加提示。
+// 全局兜底：任何工具（含元数据/视图定义等大返回）都不会撑爆模型上下文。
+const maxOutputChars = 30000
+
+// marshalToolResult 把工具结果序列化为紧凑 JSON（无缩进，节省 token）；
+// 超过输出预算时按完整字符截断（不会切断多字节字符）并追加截断提示。
+func marshalToolResult(out any) (string, error) {
+	data, err := json.Marshal(out)
+	if err != nil {
+		return "", err
+	}
+	s := string(data)
+	if n := utf8.RuneCountInString(s); n > maxOutputChars {
+		runes := []rune(s)
+		s = string(runes[:maxOutputChars]) +
+			"\n... [输出已截断：超出 token 预算，请使用 query_paginated 翻页或缩小查询范围（WHERE/limit）]"
+	}
+	return s, nil
 }

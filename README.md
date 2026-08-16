@@ -1,28 +1,29 @@
-# pg-mcp ¡ª PostgreSQL Êı¾İ¿â MCP ·şÎñÆ÷
+# pg-mcp â€” PostgreSQL æ•°æ®åº“ MCP æœåŠ¡å™¨
 
-»ùÓÚ Go + [¹Ù·½ MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)£¨Ğ­Òé **2026-07-28**£©+ [pgx v5](https://github.com/jackc/pgx) µÄ PostgreSQL Êı¾İ¿â MCP ·şÎñÆ÷£¬Óë `dm-mcp`£¨´ïÃÎ°æ£©¼Ü¹¹¶ÔµÈ£º**µ¥ÊµÀıµ¥¿â¡¢stdio ´«Êä¡¢79 ¸ö¹¤¾ß¡¢Ë«°²È«Ä£Ê½**¡£
+åŸºäº Go + [å®˜æ–¹ MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)ï¼ˆåè®® **2026-07-28**ï¼‰+ [pgx v5](https://github.com/jackc/pgx) çš„ PostgreSQL æ•°æ®åº“ MCP æœåŠ¡å™¨ï¼Œä¸ `dm-mcp`ï¼ˆè¾¾æ¢¦ç‰ˆï¼‰æ¶æ„å¯¹ç­‰ï¼š**å•å®ä¾‹å•åº“ã€stdio ä¼ è¾“ã€79 ä¸ªå·¥å…·ã€åŒå®‰å…¨æ¨¡å¼**ã€‚
 
-## ÌØĞÔ
+## ç‰¹æ€§
 
-- **×îĞÂ MCP Ğ­Òé£¨2026-07-28£©**£º¹Ù·½ SDK ÊµÏÖ stateless ÇëÇó£¨`_meta` Ğ¯´øĞ­Òé°æ±¾/ÄÜÁ¦/Éí·İ£©¡¢`server/discover` ·¢ÏÖÓë°æ±¾Ğ­ÉÌ¡¢`subscriptions/listen` ±ä¸üÍ¨ÖªÁ÷£»`tools/list` ·µ»Ø´ø `title` ÓëÍêÕû JSON Schema£¨`required`/ÀàĞÍ/ÃèÊö£©µÄ¹¤¾ß¶¨Òå
-- **stdio ´«Êä**£º×÷Îª MCP ¿Í»§¶Ë£¨mcphub/Claude/ZCode µÈ£©µÄ×Ó½ø³ÌÔËĞĞ
-- **Ô­Éú MCP ¹¤¾ß**£º79 ¸ö²Ù×÷¹¤¾ßÖ±½Ó¾­ `tools/list` ·¢ÏÖ¡¢`tools/call` µ÷ÓÃ£¨Ğ­ÒéÔ­Éú·½Ê½£¬ÎŞÖĞ¼ä·Ö·¢²ã£©
-- **restricted / unrestricted Ë«°²È«Ä£Ê½**£¨`PG_ACCESS_MODE`£©£º
-  - `restricted`£¨Ä¬ÈÏ£©£ºÁ¬½Ó¼¶ `default_transaction_read_only=on` + `statement_timeout` + ¹¤¾ßÀà±ğ°×Ãûµ¥£¨query/metadata/monitoring/explain_plan£©£¬Ö»¶Á·ÀÏßÈı²ã
-  - `unrestricted`£ºÈ«ÄÜÁ¦£¬±£ÁôÇ¿ÖÆ WHERE¡¢confirm ÃÅ½û¡¢±êÊ¶·ûĞ£Ñé¡¢Öµ²ÎÊı»¯
-- **pgxpool Ô­ÉúÁ¬½Ó³Ø**£ºAfterConnect ¹³×Ó¡¢½¡¿µ¼ì²é£»`rows.Values()` Í¨ÓÃÉ¨Ãè
-- **numeric ¾«¶È±£»¤**£º×Ô¶¨Òå½âÂëÆ÷°Ñ `numeric` ÁĞÊä³öÎªÊ®½øÖÆ×Ö·û´®£¬¹æ±Ü float64 ¾«¶È¶ªÊ§
-- **ÔªÊı¾İ²éÑ¯È«²ÎÊı»¯**£¨`$n` Õ¼Î»·û£©£¬±êÊ¶·ûÕıÔòĞ£Ñé + Ë«ÒıºÅÒıÓÃ£¬ĞŞ¸´ dm °æ `'%s'` ²åÖµ×¢ÈëÃæ
-- **PG Ô­Éú COPY Ğ­Òéµ¼Èë CSV**£º·şÎñÆ÷¶Ë½âÎöÀàĞÍ£¬ÎŞĞèÍâ²¿¹¤¾ß
-- **¹Ù·½ÎÄµµ×î¼ÑÊµ¼ùÂäµØ**£º`pg_locks LEFT JOIN pg_stat_activity` + `pg_blocking_pids`¡¢`EXPLAIN (FORMAT JSON)` + Ğ´Óï¾ä `BEGIN;EXPLAIN ANALYZE;ROLLBACK` ·¶Ê½¡¢`pg_dump -Fc` / `pg_basebackup -X stream` + `pg_verifybackup` Ğ£Ñé
+- **æœ€æ–° MCP åè®®ï¼ˆ2026-07-28ï¼‰**ï¼šå®˜æ–¹ SDK å®ç° stateless è¯·æ±‚ï¼ˆ`_meta` æºå¸¦åè®®ç‰ˆæœ¬/èƒ½åŠ›/èº«ä»½ï¼‰ã€`server/discover` å‘ç°ä¸ç‰ˆæœ¬åå•†ã€`subscriptions/listen` å˜æ›´é€šçŸ¥æµï¼›`tools/list` è¿”å›å¸¦ `title` ä¸å®Œæ•´ JSON Schemaï¼ˆ`required`/ç±»å‹/æè¿°ï¼‰çš„å·¥å…·å®šä¹‰
+- **stdio ä¼ è¾“**ï¼šä½œä¸º MCP å®¢æˆ·ç«¯ï¼ˆmcphub/Claude/ZCode ç­‰ï¼‰çš„å­è¿›ç¨‹è¿è¡Œ
+- **åŸç”Ÿ MCP å·¥å…·**ï¼š79 ä¸ªæ“ä½œå·¥å…·ç›´æ¥ç» `tools/list` å‘ç°ã€`tools/call` è°ƒç”¨ï¼ˆåè®®åŸç”Ÿæ–¹å¼ï¼Œæ— ä¸­é—´åˆ†å‘å±‚ï¼‰
+- **restricted / unrestricted åŒå®‰å…¨æ¨¡å¼**ï¼ˆ`PG_ACCESS_MODE`ï¼‰ï¼š
+  - `restricted`ï¼ˆé»˜è®¤ï¼‰ï¼šè¿æ¥çº§ `default_transaction_read_only=on` + `statement_timeout` + å·¥å…·ç±»åˆ«ç™½åå•ï¼ˆquery/metadata/monitoring/explain_planï¼‰ï¼Œåªè¯»é˜²çº¿ä¸‰å±‚
+  - `unrestricted`ï¼šå…¨èƒ½åŠ›ï¼Œä¿ç•™å¼ºåˆ¶ WHEREã€confirm é—¨ç¦ã€æ ‡è¯†ç¬¦æ ¡éªŒã€å€¼å‚æ•°åŒ–
+- **pgxpool åŸç”Ÿè¿æ¥æ± **ï¼šAfterConnect é’©å­ã€å¥åº·æ£€æŸ¥ï¼›`rows.Values()` é€šç”¨æ‰«æ
+- **numeric ç²¾åº¦ä¿æŠ¤**ï¼šè‡ªå®šä¹‰è§£ç å™¨æŠŠ `numeric` åˆ—è¾“å‡ºä¸ºåè¿›åˆ¶å­—ç¬¦ä¸²ï¼Œè§„é¿ float64 ç²¾åº¦ä¸¢å¤±
+- **å…ƒæ•°æ®æŸ¥è¯¢å…¨å‚æ•°åŒ–**ï¼ˆ`$n` å ä½ç¬¦ï¼‰ï¼Œæ ‡è¯†ç¬¦æ­£åˆ™æ ¡éªŒ + åŒå¼•å·å¼•ç”¨ï¼Œä¿®å¤ dm ç‰ˆ `'%s'` æ’å€¼æ³¨å…¥é¢
+- **PG åŸç”Ÿ COPY åè®®å¯¼å…¥ CSV**ï¼šæœåŠ¡å™¨ç«¯è§£æç±»å‹ï¼Œæ— éœ€å¤–éƒ¨å·¥å…·
+- **å®˜æ–¹æ–‡æ¡£æœ€ä½³å®è·µè½åœ°**ï¼š`pg_locks LEFT JOIN pg_stat_activity` + `pg_blocking_pids`ã€`EXPLAIN (FORMAT JSON)` + å†™è¯­å¥ `BEGIN;EXPLAIN ANALYZE;ROLLBACK` èŒƒå¼ã€`pg_dump -Fc` / `pg_basebackup -X stream` + `pg_verifybackup` æ ¡éªŒ
+- **å·¥å…·è¿”å› token ä¼˜åŒ–**ï¼šæŸ¥è¯¢ç±»å·¥å…·é»˜è®¤æœ€å¤šè¿”å› 500 è¡Œï¼ˆ`limit` å‚æ•° 1â€“10000 å¯è°ƒï¼‰ï¼Œè¶…é™è¿”å› `truncated` ä¸ç²¾ç¡® `total`ï¼›`query`/`execute_sql` æ”¯æŒ `detail_level` ä¸‰æ¡£åˆ†çº§ï¼ˆsummary åªè¿”å›æ¦‚è§ˆ+ç¤ºä¾‹æœ€çœ token / detail å®Œæ•´ / full æé«˜ä¸Šé™åˆ° 10000ï¼‰ï¼›`query_paginated` è¿”å› `has_more` æ”¯æŒç»­å–ï¼›è¾“å‡ºä¸ºç´§å‡‘ JSON å¹¶æœ‰å…¨å±€ 30K å­—ç¬¦é¢„ç®—å…œåº•
 
-## ¿ìËÙ¿ªÊ¼
+## å¿«é€Ÿå¼€å§‹
 
 ```bash
-# ¹¹½¨
+# æ„å»º
 go build -o pg-mcp.exe .
 
-# ÅäÖÃ£¨»·¾³±äÁ¿£©
+# é…ç½®ï¼ˆç¯å¢ƒå˜é‡ï¼‰
 set PG_HOST=localhost
 set PG_PORT=5432
 set PG_USER=postgres
@@ -30,32 +31,32 @@ set PG_PASSWORD=yourpassword
 set PG_DATABASE=postgres
 set PG_ACCESS_MODE=restricted
 
-# ÔËĞĞ£¨stdio£©
+# è¿è¡Œï¼ˆstdioï¼‰
 pg-mcp.exe
 ```
 
-## »·¾³±äÁ¿
+## ç¯å¢ƒå˜é‡
 
-| ±äÁ¿ | Ä¬ÈÏÖµ | ËµÃ÷ |
+| å˜é‡ | é»˜è®¤å€¼ | è¯´æ˜ |
 |---|---|---|
-| `PG_HOST` | localhost | Ö÷»ú |
-| `PG_PORT` | 5432 | ¶Ë¿Ú |
-| `PG_USER` | postgres | ÓÃ»§ |
-| `PG_PASSWORD` | £¨±ØÌî£© | ÃÜÂë |
-| `PG_DATABASE` | postgres | Êı¾İ¿â |
-| `PG_SCHEMA` | £¨¿Õ£© | Ä¬ÈÏ schema£»ÉèÖÃºó search_path ÊÕ½ôÎª `<schema>,pg_temp` |
+| `PG_HOST` | localhost | ä¸»æœº |
+| `PG_PORT` | 5432 | ç«¯å£ |
+| `PG_USER` | postgres | ç”¨æˆ· |
+| `PG_PASSWORD` | ï¼ˆå¿…å¡«ï¼‰ | å¯†ç  |
+| `PG_DATABASE` | postgres | æ•°æ®åº“ |
+| `PG_SCHEMA` | ï¼ˆç©ºï¼‰ | é»˜è®¤ schemaï¼›è®¾ç½®å search_path æ”¶ç´§ä¸º `<schema>,pg_temp` |
 | `PG_SSLMODE` | prefer | disable/allow/prefer/require/verify-ca/verify-full |
-| `PG_ACCESS_MODE` | restricted | restricted£¨Ö»¶Á£©/ unrestricted£¨È«ÄÜÁ¦£© |
-| `PG_STATEMENT_TIMEOUT` | restricted Ê± 30000 | Óï¾ä³¬Ê±£¨ºÁÃë£© |
-| `PG_CONNECT_TIMEOUT` | 10 | Á¬½Ó³¬Ê±£¨Ãë£© |
-| `PG_BIN_PATH` | £¨¿Õ£© | pg_dump/pg_restore/pg_basebackup/pg_ctl ËùÔÚÄ¿Â¼£¬È±Ê¡×ß PATH |
-| `PG_DATA_DIR` | £¨¿Õ£© | Êı¾İÄ¿Â¼£¨pg_ctl ÆôÍ£ÊµÀı±ØĞè£© |
-| `PG_DSN` | £¨¿Õ£© | ÕûÌå¸²¸ÇÁ¬½Ó´®£¨ÉèÖÃºóºöÂÔ PG_HOST µÈÁ¬½Ó²ÎÊı£»±¸·İ/ÊµÀı¹¤¾ßÈÔĞè PG_*£© |
+| `PG_ACCESS_MODE` | restricted | restrictedï¼ˆåªè¯»ï¼‰/ unrestrictedï¼ˆå…¨èƒ½åŠ›ï¼‰ |
+| `PG_STATEMENT_TIMEOUT` | restricted æ—¶ 30000 | è¯­å¥è¶…æ—¶ï¼ˆæ¯«ç§’ï¼‰ |
+| `PG_CONNECT_TIMEOUT` | 10 | è¿æ¥è¶…æ—¶ï¼ˆç§’ï¼‰ |
+| `PG_BIN_PATH` | ï¼ˆç©ºï¼‰ | pg_dump/pg_restore/pg_basebackup/pg_ctl æ‰€åœ¨ç›®å½•ï¼Œç¼ºçœèµ° PATH |
+| `PG_DATA_DIR` | ï¼ˆç©ºï¼‰ | æ•°æ®ç›®å½•ï¼ˆpg_ctl å¯åœå®ä¾‹å¿…éœ€ï¼‰ |
+| `PG_DSN` | ï¼ˆç©ºï¼‰ | æ•´ä½“è¦†ç›–è¿æ¥ä¸²ï¼ˆè®¾ç½®åå¿½ç•¥ PG_HOST ç­‰è¿æ¥å‚æ•°ï¼›å¤‡ä»½/å®ä¾‹å·¥å…·ä»éœ€ PG_*ï¼‰ |
 
-## mcphub ×¢²á£¨±¾»úÊµ¼ÊÅäÖÃ£©
+## mcphub æ³¨å†Œï¼ˆæœ¬æœºå®é™…é…ç½®ï¼‰
 
-±¾»úÔËĞĞµÄ mcphub Î»ÓÚ `D:\Tool\mcphub`£¨¼Æ»®ÈÎÎñ `MCPHub` ÍĞ¹Ü£¬¿ª»ú×ÔÆô£©£¬ÅäÖÃÎÄ¼şÎª
-`D:\Tool\mcphub\config\mcp_settings.json`¡£ÒÑ×¢²á `pg` ÌõÄ¿£¨unrestricted Ä£Ê½£©£º
+æœ¬æœºè¿è¡Œçš„ mcphub ä½äº `D:\Tool\mcphub`ï¼ˆè®¡åˆ’ä»»åŠ¡ `MCPHub` æ‰˜ç®¡ï¼Œå¼€æœºè‡ªå¯ï¼‰ï¼Œé…ç½®æ–‡ä»¶ä¸º
+`D:\Tool\mcphub\config\mcp_settings.json`ã€‚å·²æ³¨å†Œ `pg` æ¡ç›®ï¼ˆunrestricted æ¨¡å¼ï¼‰ï¼š
 
 ```json
 "pg": {
@@ -81,39 +82,39 @@ pg-mcp.exe
 }
 ```
 
-×¢ÒâÊÂÏî£º
-- **¸ÄÅäÖÃºóĞèÖØÆô mcphub**£¨²»Ö§³ÖÈÈ¼ÓÔØĞÂ server£©£º`schtasks /Run /TN MCPHub`£¨ÏÈÍ£¾É½ø³Ì£©
-- ¾­ mcphub ±©Â¶µÄ¹¤¾ßÃû´ø **`pg-` Ç°×º**£º`pg-query`¡¢`pg-insert`¡¢`pg-list_tables`¡­
-- MCP ¶ËµãÊÜ OAuth/bearer ±£»¤£ºÊ¹ÓÃ mcp_settings.json ÖĞ `bearerKeys` µÄ system key
-  £¨`Authorization: Bearer mcphub_...`£©£¬»ò×ß OAuth ÊÚÈ¨ÂëÁ÷³Ì
-- ¶à¿â·½°¸£ºmcphub Æğ¶à¸öÊµÀı¡¢¸÷×ÔÅä²»Í¬ env£¨Óë dm-mcp Ò»ÖÂ£©
+æ³¨æ„äº‹é¡¹ï¼š
+- **æ”¹é…ç½®åéœ€é‡å¯ mcphub**ï¼ˆä¸æ”¯æŒçƒ­åŠ è½½æ–° serverï¼‰ï¼š`schtasks /Run /TN MCPHub`ï¼ˆå…ˆåœæ—§è¿›ç¨‹ï¼‰
+- ç» mcphub æš´éœ²çš„å·¥å…·åå¸¦ **`pg-` å‰ç¼€**ï¼š`pg-query`ã€`pg-insert`ã€`pg-list_tables`â€¦
+- MCP ç«¯ç‚¹å— OAuth/bearer ä¿æŠ¤ï¼šä½¿ç”¨ mcp_settings.json ä¸­ `bearerKeys` çš„ system key
+  ï¼ˆ`Authorization: Bearer mcphub_...`ï¼‰ï¼Œæˆ–èµ° OAuth æˆæƒç æµç¨‹
+- å¤šåº“æ–¹æ¡ˆï¼šmcphub èµ·å¤šä¸ªå®ä¾‹ã€å„è‡ªé…ä¸åŒ envï¼ˆä¸ dm-mcp ä¸€è‡´ï¼‰
 
-## ÎÄµµ
+## æ–‡æ¡£
 
-- [DESIGN.md](./DESIGN.md) ¡ª ¼Ü¹¹Óë°²È«Éè¼Æ
-- [TOOLS.md](./TOOLS.md) ¡ª 79 ¸ö¹¤¾ßÍêÕûÇåµ¥
+- [DESIGN.md](./DESIGN.md) â€” æ¶æ„ä¸å®‰å…¨è®¾è®¡
+- [TOOLS.md](./TOOLS.md) â€” 79 ä¸ªå·¥å…·å®Œæ•´æ¸…å•
 
-## ¿ª·¢Óë²âÊÔ
+## å¼€å‘ä¸æµ‹è¯•
 
 ```bash
-# ²âÊÔ£¨²âÊÔ¹³×ÓÎ»ÓÚ //go:build test ÎÄ¼ş£¬Ğè -tags test£»Éú²ú go build ²»º¬ÈÎºÎ²âÊÔ¹³×Ó£©
+# æµ‹è¯•ï¼ˆæµ‹è¯•é’©å­ä½äº //go:build test æ–‡ä»¶ï¼Œéœ€ -tags testï¼›ç”Ÿäº§ go build ä¸å«ä»»ä½•æµ‹è¯•é’©å­ï¼‰
 go test -tags test ./...
 go vet -tags test ./...
 
-# ±äÒì²âÊÔ£¨gremlins£¬Ğè -tags test£©
+# å˜å¼‚æµ‹è¯•ï¼ˆgremlinsï¼Œéœ€ -tags testï¼‰
 gremlins unleash --tags test --timeout-coefficient 20 ./tools
 ```
 
-## Óë dm-mcp µÄ¹Ø¼ü²îÒì
+## ä¸ dm-mcp çš„å…³é”®å·®å¼‚
 
-| Î¬¶È | dm-mcp | pg-mcp |
+| ç»´åº¦ | dm-mcp | pg-mcp |
 |---|---|---|
-| Çı¶¯ | `gitee.com/chunanyong/dm`£¨database/sql£© | pgx/v5 pgxpool Ô­Éú |
-| Õ¼Î»·û | `:1, :2` | `$1, $2` |
-| DDL ÊÂÎñĞÔ | ÒşÊ½Ìá½»£¬atomic ²»¿É¿¿ | **DDL ¿É»Ø¹ö£¬atomic=true ÕæÔ­×Ó**£¨VACUUM/CONCURRENTLY ÀıÍâ£© |
+| é©±åŠ¨ | `gitee.com/chunanyong/dm`ï¼ˆdatabase/sqlï¼‰ | pgx/v5 pgxpool åŸç”Ÿ |
+| å ä½ç¬¦ | `:1, :2` | `$1, $2` |
+| DDL äº‹åŠ¡æ€§ | éšå¼æäº¤ï¼Œatomic ä¸å¯é  | **DDL å¯å›æ»šï¼Œatomic=true çœŸåŸå­**ï¼ˆVACUUM/CONCURRENTLY ä¾‹å¤–ï¼‰ |
 | upsert | `MERGE INTO` | `INSERT ... ON CONFLICT` |
-| CSV µ¼Èë | dmfldr Íâ²¿½ø³Ì | PG Ô­Éú COPY Ğ­Òé |
-| Ö»¶ÁÄ£Ê½ | ÎŞ | restricted Èı²ã·ÀÏß |
-| schema ÉèÖÃ | `ALTER SESSION`£¨½öÊ×¸öÁ¬½Ó£© | DSN `search_path`£¨È«³ØÉúĞ§£© |
-| ÈÕÖ¾ | ²¿·Ö×ß stdout | **È«²¿ stderr**£¨stdio Ğ­Òé°²È«£© |
-| numeric | float64 | ×Ö·û´®£¨ÎŞ¾«¶È¶ªÊ§£© |
+| CSV å¯¼å…¥ | dmfldr å¤–éƒ¨è¿›ç¨‹ | PG åŸç”Ÿ COPY åè®® |
+| åªè¯»æ¨¡å¼ | æ—  | restricted ä¸‰å±‚é˜²çº¿ |
+| schema è®¾ç½® | `ALTER SESSION`ï¼ˆä»…é¦–ä¸ªè¿æ¥ï¼‰ | DSN `search_path`ï¼ˆå…¨æ± ç”Ÿæ•ˆï¼‰ |
+| æ—¥å¿— | éƒ¨åˆ†èµ° stdout | **å…¨éƒ¨ stderr**ï¼ˆstdio åè®®å®‰å…¨ï¼‰ |
+| numeric | float64 | å­—ç¬¦ä¸²ï¼ˆæ— ç²¾åº¦ä¸¢å¤±ï¼‰ |

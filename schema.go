@@ -99,6 +99,7 @@ var paramDescriptions = map[string]string{
 	"section":         "恢复区段 pre-data|data|post-data",
 	"extra_args":      "额外命令行参数数组",
 	"limit":           "返回条数上限",
+	"detail_level":    "返回粒度 summary|detail|full（summary 只返回概览+示例行最省 token，detail 返回完整行（默认），full 提高默认行数上限到 10000）",
 	"page":            "页码（从 1 开始）",
 	"page_size":       "每页条数",
 	"timeout_seconds": "超时秒数",

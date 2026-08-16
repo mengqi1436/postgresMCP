@@ -48,6 +48,14 @@ MCP 客户端（mcphub / Claude / ZCode）
 | 错误分级 | spec tools/call | 业务错误 `errorResult`（IsError=true，Content 为错误文本）；系统故障 `return nil, err` |
 | 生命周期 | SDK `Run` | `signal.NotifyContext` + `s.Run(ctx, &mcp.StdioTransport{})`：客户端断开或 SIGINT/SIGTERM 时返回，统一 `database.Close()` |
 
+### 2.1 工具返回 token 优化（2026-07 生态实践）
+
+对齐社区"返回层节省 token"实践（字段投影 / 自适应分页 / 输出压缩 / 渐进式披露）：
+- **行数上限**：`database.QueryLimit(ctx, maxRows, sql, args...)` 统一限制返回行数；达到上限后继续扫描仅计数，得到精确 `Total`（pgx `rows.Close()` 本会 drain 剩余行，计数零额外开销），返回 `Truncated`。查询类工具默认 500 行、批处理每条 200 行，`limit` 参数（1–10000）可上调，**不提供无限选项**。
+- **分级返回**：`query` / `execute_sql` 支持 `detail_level=summary|detail|full`（对齐 gitlab-mcp 的渐进式披露模式）。`summary` 只返回 `count`/`total`/`sample` 且服务端仅构建示例行（`maxRows=3`，内存/网络双省），`detail` 返回完整行（默认），`full` 把默认行数上限提到 10000。不做服务端结果缓存"钻取"：数据在数据库中，模型直接用 SQL（WHERE/GROUP BY/query_paginated）即可实现同等钻取，缓存组件是冗余。
+- **分页续取**：`query_paginated` 用 `LIMIT page_size+1` 多取一行判定 `has_more`（不额外 COUNT 查询），Agent 依此决定翻页。
+- **紧凑序列化 + 全局预算**：`marshalToolResult` 用 `json.Marshal`（无缩进）序列化，超出 30K 字符预算按完整 rune 截断并追加提示——任何工具（含视图/索引全文定义）的超大返回都被兜底，不会撑爆模型上下文。
+
 ## 3. pgx 最佳实践落地
 
 | 实践 | 出处 | 落地 |
@@ -147,6 +155,6 @@ D:\MCP\postgresCLI\
 - **tools/**：registry 白名单（restricted 拦截写工具、放行只读）、utils 标识符/引用安全助手
 - **config/**：GetDSN 的 restricted（read_only/search_path/超时）与 unrestricted 差异、RawDSN 覆盖、MaskedDSN 脱敏
 - **database/**：pgxmock 注入的查询/执行/事务（提交与回滚）/COPY 解码原语、numeric 二进制解码、normalizeValue
-- **变异测试**（gremlins）：main/config 功效 100%、database ~100%、tools 99.23%（仅剩等价变异）；tools 变异覆盖率 61%、database 80%
+- **变异测试**（gremlins v0.6.0，`gremlins unleash --tags test --timeout-coefficient 20 <pkg>`，分包跑——`./...` 在 Windows 会触发 gremlins 自身的 panic）：tools 功效 100%（159 killed / 0 lived）、根包 100%（12 / 0）、database 92.86%（唯一存活为 numeric 小数截断 `len(f) > dscale` 的等价变异——`len(f)==dscale` 时 `>` 与 `>=` 结果相同，测试无法区分，接受）；变异覆盖率 tools 47.46%、database 56%（NOT COVERED 集中于 backup/binexec/instance 等依赖外部二进制与真实 PG 的工具；TIMED OUT 为 pgxmock 场景下变异后测试挂起的变体，不计入功效）
 - **测试钩子与生产隔离**：`SetPoolForTest` / `ResetForTest` 放在 `//go:build test` 标签文件（`database/test_hooks.go`、`config/test_hooks.go`），**生产 `go build` 二进制不含任何测试钩子**（经 `go tool nm` 验证）；测试构建需 `-tags test`
 - CI（release.yml `test` job）：`go vet -tags test ./...` + `go test -tags test ./...`（无需 PG 即可绿），通过后才进入 build/release

@@ -12,7 +12,7 @@ func registerBatchOpsTools() {
 	RegisterTool(ToolInfo{
 		Name:        "batch_execute_sql",
 		Category:    "advanced",
-		Description: "批量执行多条任意 SQL。参数: statements(必需, SQL 数组), atomic(可选, 默认false; true 时整体事务全有或全无——PG 的 DDL 也可回滚)",
+		Description: "批量执行多条任意 SQL。参数: statements(必需, SQL 数组), atomic(可选, 默认false; true 时整体事务全有或全无——PG 的 DDL 也可回滚)。SELECT 分支每条最多返回 200 行，超限返回 total/truncated",
 		Params:      []string{"statements", "atomic"},
 	}, handleBatchExecuteSQL)
 }
@@ -43,7 +43,7 @@ func handleBatchExecuteSQL(params map[string]interface{}) (interface{}, error) {
 		entry := map[string]interface{}{"index": i, "sql": stmt}
 		switch classifySQL(stmt) {
 		case "query":
-			rows, err := database.Query(ctx, stmt)
+			qr, err := database.QueryLimit(ctx, DefaultBatchMaxRows, stmt)
 			if err != nil {
 				entry["ok"] = false
 				entry["error"] = err.Error()
@@ -51,7 +51,9 @@ func handleBatchExecuteSQL(params map[string]interface{}) (interface{}, error) {
 			} else {
 				entry["ok"] = true
 				entry["type"] = "query"
-				entry["count"] = len(rows)
+				entry["count"] = len(qr.Rows)
+				entry["total"] = qr.Total
+				entry["truncated"] = qr.Truncated
 				okCount++
 			}
 		default:

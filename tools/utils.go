@@ -12,6 +12,52 @@ import (
 // 默认工具级超时（数据库操作）。
 const defaultToolTimeout = 60 * time.Second
 
+// 查询类工具默认行数上限：防止大结果集撑爆模型上下文。
+const DefaultMaxRows = 500
+
+// full 档（detail_level=full）默认行数上限。
+const DefaultFullMaxRows = 10000
+
+// summary 档（detail_level=summary）只构建 sample 示例行的行数上限。
+const SummarySampleRows = 3
+
+// 批处理工具每条结果的行数上限（batch_query / batch_execute_sql）。
+const DefaultBatchMaxRows = 200
+
+// clampLimit 把 limit 参数钳制到 1..10000，越界用默认值。
+// 有意不提供"无限"选项：防爆上下文是核心目标。
+func clampLimit(v int) int {
+	if v < 1 || v > 10000 {
+		return DefaultMaxRows
+	}
+	return v
+}
+
+// maxRowsFromParams 读取可选 limit 参数（1..10000，越界用默认值）。
+// getDetailLevel 返回分级参数（summary/detail/full），非法值回退 detail（默认）。
+func getDetailLevel(params map[string]interface{}) string {
+	v := getString(params, "detail_level")
+	switch v {
+	case "summary", "detail", "full":
+		return v
+	}
+	return "detail"
+}
+
+// maxRowsForDetailLevel 按分级决定扫描行数：
+// summary 只构建示例行（省内存，total 仍精确计数）；full 提高默认行数上限；
+// detail（默认）使用 limit 参数（缺省 DefaultMaxRows）。
+func maxRowsForDetailLevel(params map[string]interface{}, detail string) int {
+	switch detail {
+	case "summary":
+		return SummarySampleRows
+	case "full":
+		return clampLimit(getIntDefault(params, "limit", DefaultFullMaxRows))
+	default:
+		return clampLimit(getIntDefault(params, "limit", DefaultMaxRows))
+	}
+}
+
 // toolContext 返回带默认超时的 context。
 func toolContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), defaultToolTimeout)

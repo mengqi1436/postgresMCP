@@ -60,6 +60,59 @@ func TestQueryScansRows(t *testing.T) {
 	}
 }
 
+// ---- QueryLimit：行数上限 + 截断标记 + 精确总数 ----
+
+func TestQueryLimitUnderLimit(t *testing.T) {
+	mock := newMockPool(t)
+	mock.ExpectQuery("SELECT 1").
+		WillReturnRows(pgxmock.NewRows([]string{"n"}).AddRow(1).AddRow(2))
+
+	qr, err := QueryLimit(context.Background(), 5, "SELECT 1")
+	if err != nil {
+		t.Fatalf("QueryLimit: %v", err)
+	}
+	if qr.Truncated {
+		t.Fatalf("未超限不应截断")
+	}
+	if qr.Total != 2 || len(qr.Rows) != 2 {
+		t.Fatalf("Total=%d rows=%d, want 2/2", qr.Total, len(qr.Rows))
+	}
+}
+
+func TestQueryLimitTruncates(t *testing.T) {
+	mock := newMockPool(t)
+	mock.ExpectQuery("SELECT 1").
+		WillReturnRows(pgxmock.NewRows([]string{"n"}).AddRow(1).AddRow(2).AddRow(3).AddRow(4))
+
+	qr, err := QueryLimit(context.Background(), 2, "SELECT 1")
+	if err != nil {
+		t.Fatalf("QueryLimit: %v", err)
+	}
+	if !qr.Truncated {
+		t.Fatalf("超过 2 行应截断")
+	}
+	if len(qr.Rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(qr.Rows))
+	}
+	if qr.Total != 4 {
+		t.Fatalf("Total = %d, want 4", qr.Total)
+	}
+}
+
+func TestQueryLimitNoLimitWhenZero(t *testing.T) {
+	mock := newMockPool(t)
+	mock.ExpectQuery("SELECT 1").
+		WillReturnRows(pgxmock.NewRows([]string{"n"}).AddRow(1).AddRow(2).AddRow(3))
+
+	qr, err := QueryLimit(context.Background(), 0, "SELECT 1")
+	if err != nil {
+		t.Fatalf("QueryLimit: %v", err)
+	}
+	if qr.Truncated || qr.Total != 3 || len(qr.Rows) != 3 {
+		t.Fatalf("maxRows=0 应不限制: truncated=%v total=%d rows=%d", qr.Truncated, qr.Total, len(qr.Rows))
+	}
+}
+
 func TestExecuteReturnsRowsAffected(t *testing.T) {
 	mock := newMockPool(t)
 	mock.ExpectExec(`UPDATE "t"`).WillReturnResult(pgxmock.NewResult("UPDATE", 7))

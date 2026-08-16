@@ -206,3 +206,46 @@ func TestKillExecuteSQLDDLWithArgs(t *testing.T) {
 }
 
 // ---- failCount==0 变异：断言 success 字段 ----
+
+// ---- token 优化：execute_sql SELECT 分支行数上限 ----
+
+func TestHandleExecuteSQLQueryLimit(t *testing.T) {
+	mock := newMockPool(t)
+	mock.ExpectQuery("SELECT 1").
+		WillReturnRows(pgxmock.NewRows([]string{"n"}).AddRow(1).AddRow(2).AddRow(3))
+
+	out, err := handleExecuteSQL(map[string]interface{}{"sql": "SELECT 1", "limit": 2})
+	if err != nil {
+		t.Fatalf("handleExecuteSQL limit: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if res["type"] != "query" || res["count"] != 2 || res["total"] != 3 || res["truncated"] != true {
+		t.Fatalf("limit 截断结果 = %v", res)
+	}
+}
+
+// ---- token 优化：execute_sql SELECT 分支 detail_level=summary ----
+
+func TestHandleExecuteSQLSummary(t *testing.T) {
+	mock := newMockPool(t)
+	mock.ExpectQuery("SELECT 1").
+		WillReturnRows(pgxmock.NewRows([]string{"n"}).AddRow(1).AddRow(2).AddRow(3).AddRow(4))
+
+	out, err := handleExecuteSQL(map[string]interface{}{"sql": "SELECT 1", "detail_level": "summary"})
+	if err != nil {
+		t.Fatalf("handleExecuteSQL summary: %v", err)
+	}
+	res := out.(map[string]interface{})
+	if res["type"] != "query" {
+		t.Fatalf("type = %v", res["type"])
+	}
+	if _, hasRows := res["rows"]; hasRows {
+		t.Fatalf("summary 不应返回 rows: %v", res)
+	}
+	if res["count"] != 3 || res["total"] != 4 || res["truncated"] != true {
+		t.Fatalf("summary 概览 = %v", res)
+	}
+	if _, ok := res["sample"].([]map[string]interface{}); !ok {
+		t.Fatalf("summary 应有 sample: %v", res["sample"])
+	}
+}
