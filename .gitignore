@@ -10,3 +10,4 @@ npm/package-lock.json
 .playwright-cli/
 .codeartsdoer/
 .zcode/
+.codegraph/

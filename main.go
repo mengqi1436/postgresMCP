@@ -23,7 +23,7 @@ func main() {
 	// tools 能力随工具注册自动推断（{"listChanged":true}）。
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "postgres-database-mcp",
-		Version: "2.0.0",
+		Version: "3.1.0",
 	}, &mcp.ServerOptions{
 		Logger:       logger,
 		Capabilities: &mcp.ServerCapabilities{},
