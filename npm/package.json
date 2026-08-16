@@ -1,5 +1,5 @@
 {
-  "name": "@pg-mcp/server",
+  "name": "postgresqlmcp-server",
   "version": "0.0.0",
   "description": "PostgreSQL 数据库 MCP 服务器（Go 二进制包装，stdio 传输）",
   "license": "MIT",

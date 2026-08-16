@@ -101,7 +101,7 @@ jobs:
           generate_release_notes: true
 
   npm-publish:
-    name: Publish npm (@pg-mcp/server)
+    name: Publish npm (postgresqlmcp-server)
     needs: build
     runs-on: ubuntu-latest
     # 仅 v* tag 推送时发布 npm，版本号与 tag 对齐（如 v2.2.0 → 2.2.0）

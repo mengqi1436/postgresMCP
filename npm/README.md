@@ -1,4 +1,4 @@
-# @pg-mcp/server
+# postgresqlmcp-server
 
 PostgreSQL 数据库 MCP 服务器（Go 二进制包装，stdio 传输）。
 
@@ -23,9 +23,9 @@ PostgreSQL 数据库 MCP 服务器（Go 二进制包装，stdio 传输）。
 ## 安装
 
 ```bash
-npm install -g @pg-mcp/server
+npm install -g postgresqlmcp-server
 # 或局部安装
-npm install @pg-mcp/server
+npm install postgresqlmcp-server
 ```
 
 安装时会自动执行 `postinstall` 下载对应平台二进制。
@@ -75,7 +75,7 @@ npm install @pg-mcp/server
   "mcpServers": {
     "pg-mcp": {
       "command": "npx",
-      "args": ["-y", "@pg-mcp/server"],
+      "args": ["-y", "postgresqlmcp-server"],
       "env": { "PG_HOST": "localhost", "PG_PASSWORD": "yourpassword" }
     }
   }
@@ -84,7 +84,7 @@ npm install @pg-mcp/server
 
 ## 版本对齐
 
-npm 版本号与 GitHub Release 的 tag 对齐：`@pg-mcp/server@2.2.0`
+npm 版本号与 GitHub Release 的 tag 对齐：`postgresqlmcp-server@2.2.0`
 对应 [GitHub Release `v2.2.0`](https://github.com/mengqi1436/postgresMCP/releases)，
 postinstall 从 `releases/download/v2.2.0/` 下载完全一致的二进制。
 

@@ -21,7 +21,7 @@
 
 ```bash
 # npm 安装（无需 Go 环境，postinstall 自动从 GitHub Releases 下载对应平台二进制）
-npm i -g @pg-mcp/server
+npm i -g postgresqlmcp-server
 
 # 或从源码构建
 go build -o pg-mcp.exe .
